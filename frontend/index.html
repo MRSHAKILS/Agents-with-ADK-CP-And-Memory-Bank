@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Dev Card Generator</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        function App() {
+            const [username, setUsername] = React.useState('');
+            
+            const handleGenerate = () => {
+                console.log('Generating for:', username);
+                // TODO: Call API
+            };
+
+            return (
+                <div class="p-8 bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
+                    <h1 class="text-3xl font-bold mb-6 text-center text-blue-400">GitHub Dev Card</h1>
+                    <input 
+                        type="text" 
+                        placeholder="GitHub Username" 
+                        class="w-full p-3 mb-4 bg-gray-700 rounded border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                    />
+                    <button 
+                        onClick={handleGenerate}
+                        class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded font-bold transition duration-200"
+                    >
+                        Generate Card
+                    </button>
+                    <div id="card-preview" class="mt-8">
+                        {/* Placeholder for card */}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
