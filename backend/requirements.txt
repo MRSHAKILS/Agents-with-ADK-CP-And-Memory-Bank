@@ -1,5 +1,7 @@
 fastapi
 uvicorn
-mcp
+mcp[cli]
 google-genai
 python-dotenv
+httpx
+jinja2
