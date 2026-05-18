@@ -75,7 +75,7 @@ async def analyze_profile(github_data: Dict) -> Dict:
     """
     
     response = client_genai.models.generate_content(
-        model="gemini-2.0-flash", # Using 2.0-flash as stable identifier
+        model="gemini-1.5-flash", # Using 1.5-flash for better availability
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json"

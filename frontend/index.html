@@ -4,42 +4,189 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GitHub Dev Card Generator</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(22, 27, 34, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(48, 54, 61, 1);
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        .btn-hover:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(56, 139, 253, 0.4);
+        }
+        .github-gradient {
+            background: linear-gradient(135deg, #1f6feb 0%, #388bfd 100%);
+        }
+        ::selection {
+            background: #388bfd;
+            color: white;
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen">
-    <div id="root"></div>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div id="root" class="w-full max-w-[600px]"></div>
 
     <script type="text/babel">
+        const { useState, useEffect } = React;
+
         function App() {
-            const [username, setUsername] = React.useState('');
-            
-            const handleGenerate = () => {
-                console.log('Generating for:', username);
-                // TODO: Call API
+            const [username, setUsername] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [result, setResult] = useState(null);
+            const [error, setError] = useState(null);
+            const [copied, setCopied] = useState(false);
+
+            const generateCard = async () => {
+                if (!username.trim()) return;
+                
+                setLoading(true);
+                setError(null);
+                setResult(null);
+                
+                try {
+                    const response = await fetch('${BACKEND_URL}/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: username.trim() })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.status === 'success') {
+                        setResult(data);
+                    } else {
+                        setError(data.detail || "Hmm, we couldn't find that GitHub user.");
+                    }
+                } catch (err) {
+                    setError("Unable to connect to the backend. Is it running on port 8080?");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const copyToClipboard = () => {
+                if (result?.card_url) {
+                    const fullUrl = `${window.location.origin}${result.card_url}`;
+                    navigator.clipboard.writeText(fullUrl);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                }
             };
 
             return (
-                <div class="p-8 bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-700">
-                    <h1 class="text-3xl font-bold mb-6 text-center text-blue-400">GitHub Dev Card</h1>
-                    <input 
-                        type="text" 
-                        placeholder="GitHub Username" 
-                        class="w-full p-3 mb-4 bg-gray-700 rounded border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                    />
-                    <button 
-                        onClick={handleGenerate}
-                        class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded font-bold transition duration-200"
-                    >
-                        Generate Card
-                    </button>
-                    <div id="card-preview" class="mt-8">
-                        {/* Placeholder for card */}
+                <div class="space-y-8 py-10">
+                    <header class="text-center space-y-3">
+                        <h1 class="text-4xl md:text-5xl font-extrabold text-white tracking-tight">
+                            GitHub <span class="text-blue-500">Dev Card</span>
+                        </h1>
+                        <p class="text-gray-400 text-lg">Enter any public GitHub username</p>
+                    </header>
+
+                    <div class="glass-card p-6 rounded-2xl shadow-2xl space-y-4">
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <input 
+                                type="text" 
+                                placeholder="e.g. torvalds" 
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && generateCard()}
+                                class="flex-1 bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                            />
+                            <button 
+                                onClick={generateCard}
+                                disabled={loading}
+                                class={`github-gradient btn-hover text-white font-bold px-6 py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                {loading ? (
+                                    <>
+                                        <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Generating...
+                                    </>
+                                ) : "Generate Card"}
+                            </button>
+                        </div>
+
+                        {error && (
+                            <div class="bg-red-900/20 border border-red-500/50 text-red-400 p-3 rounded-lg text-sm text-center animate-pulse">
+                                {error}
+                            </div>
+                        )}
                     </div>
+
+                    {loading && (
+                        <div class="glass-card p-8 rounded-2xl shadow-2xl flex flex-col items-center space-y-6 pulse max-w-sm mx-auto">
+                            <div class="w-24 h-24 bg-gray-700 rounded-full"></div>
+                            <div class="w-full space-y-3">
+                                <div class="h-4 bg-gray-700 rounded w-3/4 mx-auto"></div>
+                                <div class="h-4 bg-gray-700 rounded w-1/2 mx-auto"></div>
+                            </div>
+                            <div class="w-full h-32 bg-gray-700 rounded-xl"></div>
+                        </div>
+                    )}
+
+                    {result && (
+                        <div class="fade-in space-y-6 flex flex-col items-center">
+                            <div class="inline-block shadow-[0_20px_50px_rgba(56,139,253,0.3)] rounded-2xl overflow-hidden bg-white">
+                                <div dangerouslySetInnerHTML={{ __html: result.card_html }} />
+                            </div>
+                            
+                            <div class="flex gap-3">
+                                <button 
+                                    onClick={copyToClipboard}
+                                    class="bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] font-semibold px-5 py-2.5 rounded-xl border border-[#30363d] transition-all flex items-center gap-2"
+                                >
+                                    {copied ? (
+                                        <><svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied!</>
+                                    ) : (
+                                        <><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg> Copy Link</>
+                                    )}
+                                </button>
+                                <a 
+                                    href={`http://localhost:8080${result.card_url}`} 
+                                    target="_blank"
+                                    class="bg-[#21262d] hover:bg-[#30363d] text-[#c9d1d9] font-semibold px-5 py-2.5 rounded-xl border border-[#30363d] transition-all flex items-center gap-2"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    Open Full
+                                </a>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <footer class="text-center pt-10">
+                        <p class="text-gray-600 text-sm">Powered by Gemini 2.5 Flash & Google ADK</p>
+                    </footer>
                 </div>
             );
         }
