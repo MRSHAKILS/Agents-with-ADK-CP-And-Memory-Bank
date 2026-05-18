@@ -9,17 +9,21 @@ from google.genai import types
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Explicitly load .env from the backend directory (same dir as this script)
+_ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=_ENV_PATH)
 
 mcp = FastMCP("GitHubDevCard")
 
 GITHUB_API_URL = "https://api.github.com"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 client_genai = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 @mcp.tool()
 async def scrape_github(username: str) -> Dict:
     """Fetch GitHub stats for a given username using the REST API."""
-    async with httpx.AsyncClient() as client:
+    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
+    async with httpx.AsyncClient(headers=headers) as client:
         # Profile info
         user_resp = await client.get(f"{GITHUB_API_URL}/users/{username}")
         if user_resp.status_code != 200:
@@ -63,7 +67,7 @@ async def scrape_github(username: str) -> Dict:
 
 @mcp.tool()
 async def analyze_profile(github_data: Dict) -> Dict:
-    """Analyze GitHub profile using Gemini 2.5 Flash to determine dev vibe and theme."""
+    """Analyze GitHub profile using Gemini to determine dev vibe and theme."""
     prompt = f"""
     Analyze this GitHub profile data and return a JSON object with:
     1. developer_vibe: A 1-sentence witty personality description.
@@ -74,8 +78,8 @@ async def analyze_profile(github_data: Dict) -> Dict:
     Data: {json.dumps(github_data)}
     """
     
-    response = client_genai.models.generate_content(
-        model="gemini-1.5-flash", # Using 1.5-flash for better availability
+    response = await client_genai.aio.models.generate_content(
+        model="gemini-2.0-flash",
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json"

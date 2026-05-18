@@ -1,10 +1,15 @@
 import os
 import sys
-from adk import Agent
-from adk.toolsets import McpToolset
+from pathlib import Path
+from google.adk import Agent
+from google.adk.tools import McpToolset
+from google.adk.tools.mcp_tool.mcp_toolset import StdioConnectionParams
+from mcp.client.stdio import StdioServerParameters
 from dotenv import load_dotenv
 
-load_dotenv()
+# Explicitly load .env from the backend directory (same dir as this script)
+_ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=_ENV_PATH)
 
 # System instruction for the agent
 SYSTEM_INSTRUCTION = (
@@ -17,17 +22,21 @@ SYSTEM_INSTRUCTION = (
 # Define the toolset connecting to the local MCP server via stdio
 # Note: We use sys.executable to ensure we use the same python interpreter/venv
 mcp_toolset = McpToolset(
-    command=sys.executable,
-    args=["mcp_server.py"],
-    cwd=os.path.dirname(os.path.abspath(__file__))
+    connection_params=StdioConnectionParams(
+        server_params=StdioServerParameters(
+            command=sys.executable,
+            args=["mcp_server.py"],
+            cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+    )
 )
 
 # Create the ADK Agent
 github_card_agent = Agent(
     name="github_card_agent",
-    model="gemini-2.0-flash", # Using 2.0-flash as the identifier
-    instructions=SYSTEM_INSTRUCTION,
-    toolsets=[mcp_toolset]
+    model="gemini-2.5-flash", # Using 2.5-flash as the identifier
+    instruction=SYSTEM_INSTRUCTION,
+    tools=[mcp_toolset]
 )
 
 if __name__ == "__main__":

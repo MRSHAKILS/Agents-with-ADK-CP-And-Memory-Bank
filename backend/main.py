@@ -3,8 +3,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from adk import Runner
-from adk.services import InMemorySessionService, InMemoryMemoryService
+from google.adk import Runner
+from google.adk.sessions import InMemorySessionService
+from google.adk.memory import InMemoryMemoryService
 from agent import github_card_agent
 from pathlib import Path
 import uvicorn
@@ -24,6 +25,7 @@ app.add_middleware(
 session_service = InMemorySessionService()
 memory_service = InMemoryMemoryService()
 runner = Runner(
+    app_name="github_dev_card",
     agent=github_card_agent,
     session_service=session_service,
     memory_service=memory_service
@@ -50,21 +52,43 @@ async def generate_card(request: GenerateRequest):
         raise HTTPException(status_code=400, detail="Username is required")
 
     try:
-        # Use username as session_id to maintain context for that user
+        from google.genai import types as genai_types
+
+        APP_NAME = "github_dev_card"
+        user_id = f"user_{username}"
         session_id = f"session_{username}"
-        
-        # Run the agent through the runner
-        response = await runner.run(
-            input=f"Generate a dev card for {username}",
-            session_id=session_id
+
+        # Create or reuse session
+        existing = await session_service.get_session(
+            app_name=APP_NAME, user_id=user_id, session_id=session_id
+        )
+        if existing is None:
+            await session_service.create_session(
+                app_name=APP_NAME, user_id=user_id, session_id=session_id
+            )
+
+        # Build the message content
+        new_message = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=f"Generate a dev card for GitHub user: {username}")]
         )
 
-        # The agent is instructed to call save_card, which returns the path.
-        # We'll return the final text response which should contain the confirmation
-        # and we'll also check if the file exists to provide a direct link.
+        # Stream events from the agent
+        final_response_text = ""
+        async for event in runner.run_async(
+            user_id=user_id,
+            session_id=session_id,
+            new_message=new_message,
+        ):
+            if hasattr(event, "content") and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        final_response_text = part.text
+
+        # Check if the card file was saved by the agent
         card_file = STATIC_DIR / f"{username}.html"
         card_url = f"/static/cards/{username}.html" if card_file.exists() else None
-        
+
         card_content = ""
         if card_file.exists():
             with open(card_file, "r", encoding="utf-8") as f:
@@ -72,7 +96,7 @@ async def generate_card(request: GenerateRequest):
 
         return {
             "status": "success",
-            "message": response.text,
+            "message": final_response_text,
             "card_url": card_url,
             "card_html": card_content
         }
